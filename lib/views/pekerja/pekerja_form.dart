@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/pekerja.dart';
-import '../../services/api_service.dart';
+import '../../services/db_helper.dart'; // MENGGUNAKAN OFFLINE DB
 
 class PekerjaForm extends StatefulWidget {
-  final Pekerja? pekerja; // Jika null = Tambah Baru, Jika terisi = Edit
-
-  // Constructor
+  final Pekerja? pekerja;
   PekerjaForm({this.pekerja});
 
   @override
@@ -14,7 +12,6 @@ class PekerjaForm extends StatefulWidget {
 
 class _PekerjaFormState extends State<PekerjaForm> {
   final _formKey = GlobalKey<FormState>();
-  final ApiService _apiService = ApiService();
 
   late TextEditingController _namaController;
   late TextEditingController _noHpController;
@@ -26,7 +23,6 @@ class _PekerjaFormState extends State<PekerjaForm> {
   @override
   void initState() {
     super.initState();
-    // Cek apakah ini mode Edit. Jika ya, isi kolom dengan data lama.
     bool isEdit = widget.pekerja != null;
     
     _namaController = TextEditingController(text: isEdit ? widget.pekerja!.nama : '');
@@ -39,36 +35,28 @@ class _PekerjaFormState extends State<PekerjaForm> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      bool sukses;
-      
-      // Jika mode EDIT, panggil editPekerja
-      if (widget.pekerja != null) {
-        sukses = await _apiService.editPekerja(
-          widget.pekerja!.id,
-          _namaController.text,
-          _noHpController.text,
-          _posisiController.text,
-          int.parse(_upahController.text),
-        );
-      } 
-      // Jika mode TAMBAH, panggil tambahPekerja
-      else {
-        sukses = await _apiService.tambahPekerja(
-          _namaController.text,
-          _noHpController.text,
-          _posisiController.text,
-          int.parse(_upahController.text),
-        );
-      }
+      Map<String, dynamic> rowData = {
+        'nama': _namaController.text,
+        'no_hp': _noHpController.text,
+        'posisi': _posisiController.text,
+        'upah_harian': int.parse(_upahController.text),
+      };
 
-      setState(() => _isLoading = false);
+      try {
+        if (widget.pekerja != null) {
+          rowData['id'] = widget.pekerja!.id;
+          await DatabaseHelper.instance.updatePekerja(rowData);
+        } else {
+          await DatabaseHelper.instance.insertPekerja(rowData);
+        }
 
-      if (sukses) {
+        setState(() => _isLoading = false);
         Navigator.pop(context, true); 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(widget.pekerja != null ? 'Data berhasil diubah!' : 'Data berhasil ditambah!'), backgroundColor: Colors.green),
         );
-      } else {
+      } catch (e) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal menyimpan data'), backgroundColor: Colors.red),
         );
@@ -83,7 +71,6 @@ class _PekerjaFormState extends State<PekerjaForm> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'Edit Data Kuli' : 'Tambah Kuli Baru'),
-        backgroundColor: Colors.amber[700],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -93,13 +80,13 @@ class _PekerjaFormState extends State<PekerjaForm> {
             children: [
               TextFormField(
                 controller: _namaController,
-                decoration: InputDecoration(labelText: 'Nama Lengkap', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: 'Nama Lengkap'),
                 validator: (value) => value!.isEmpty ? 'Nama tidak boleh kosong' : null,
               ),
               SizedBox(height: 16),
               TextFormField(
                 controller: _noHpController,
-                decoration: InputDecoration(labelText: 'Nomor HP/WA', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: 'Nomor HP/WA'),
                 keyboardType: TextInputType.phone,
               ),
               SizedBox(height: 16),
@@ -107,7 +94,6 @@ class _PekerjaFormState extends State<PekerjaForm> {
                 controller: _posisiController,
                 decoration: InputDecoration(
                   labelText: 'Posisi/Keahlian', 
-                  border: OutlineInputBorder(),
                   helperText: 'Contoh: Kenek, Tukang Batu, Tukang Kayu'
                 ),
                 validator: (value) => value!.isEmpty ? 'Posisi tidak boleh kosong' : null,
@@ -115,20 +101,16 @@ class _PekerjaFormState extends State<PekerjaForm> {
               SizedBox(height: 16),
               TextFormField(
                 controller: _upahController,
-                decoration: InputDecoration(labelText: 'Upah Harian (Rp)', border: OutlineInputBorder(), prefixText: 'Rp '),
+                decoration: InputDecoration(labelText: 'Upah Harian (Rp)', prefixText: 'Rp '),
                 keyboardType: TextInputType.number,
                 validator: (value) => value!.isEmpty ? 'Upah tidak boleh kosong' : null,
               ),
               SizedBox(height: 32),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber[700],
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                ),
                 onPressed: _isLoading ? null : _simpanData,
                 child: _isLoading 
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(isEdit ? 'UPDATE DATA' : 'SIMPAN DATA', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(isEdit ? 'UPDATE DATA' : 'SIMPAN DATA'),
               ),
             ],
           ),

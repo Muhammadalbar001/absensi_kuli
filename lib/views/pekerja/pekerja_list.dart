@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart'; 
 import '../../models/pekerja.dart';
-import '../../services/api_service.dart';
+import '../../services/db_helper.dart';
 import 'pekerja_form.dart';
 import '../absensi/absensi_page.dart';
-import 'rekap_gaji_page.dart'; 
+import 'rekap_gaji_page.dart';
+import 'rekap_global_page.dart';
+import 'makan_page.dart'; // IMPORT HALAMAN MAKAN
 
 class PekerjaList extends StatefulWidget {
   @override
@@ -11,7 +14,6 @@ class PekerjaList extends StatefulWidget {
 }
 
 class _PekerjaListState extends State<PekerjaList> {
-  final ApiService _apiService = ApiService();
   late Future<List<Pekerja>> _futurePekerja;
 
   @override
@@ -22,71 +24,60 @@ class _PekerjaListState extends State<PekerjaList> {
 
   void _refreshPekerja() {
     setState(() {
-      _futurePekerja = _apiService.getPekerja();
+      _futurePekerja = DatabaseHelper.instance.queryAllPekerja().then((maps) {
+        return maps.map((m) => Pekerja.fromMap(m)).toList();
+      });
     });
   }
 
-  // Fungsi memunculkan Pop-up Input Kasbon
   void _tampilkanDialogKasbon(BuildContext context, Pekerja pekerja) {
     TextEditingController nominalController = TextEditingController();
     TextEditingController keteranganController = TextEditingController(text: 'Makan/Rokok');
-    bool isSaving = false;
 
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text('Kasbon: ${pekerja.nama}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nominalController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: 'Nominal (Rp)', prefixText: 'Rp '),
-                  ),
-                  SizedBox(height: 12),
-                  TextField(
-                    controller: keteranganController,
-                    decoration: InputDecoration(labelText: 'Keterangan'),
-                  ),
-                ],
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Kasbon: ${pekerja.nama}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nominalController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Nominal (Rp)', prefixText: 'Rp '),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Batal', style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[700]),
-                  onPressed: isSaving ? null : () async {
-                    setStateDialog(() => isSaving = true);
-                    
-                    String tglHariIni = DateTime.now().toString().split(' ')[0];
-                    int nominal = int.tryParse(nominalController.text) ?? 0;
-
-                    if (nominal > 0) {
-                      bool sukses = await _apiService.simpanKasbon(pekerja.id, tglHariIni, nominal, keteranganController.text);
-                      if (sukses) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Kasbon Rp $nominal berhasil dicatat!'), backgroundColor: Colors.green));
-                      } else {
-                        setStateDialog(() => isSaving = false);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mencatat kasbon'), backgroundColor: Colors.red));
-                      }
-                    } else {
-                       setStateDialog(() => isSaving = false);
-                    }
-                  },
-                  child: isSaving ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text('Simpan'),
-                )
-              ],
-            );
-          }
+              const SizedBox(height: 12),
+              TextField(
+                controller: keteranganController,
+                decoration: const InputDecoration(labelText: 'Keterangan'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+            ElevatedButton(
+              onPressed: () async {
+                int nominal = int.tryParse(nominalController.text) ?? 0;
+                if (nominal > 0) {
+                  await DatabaseHelper.instance.insertKasbon({
+                    'pekerja_id': pekerja.id,
+                    'tanggal': DateTime.now().toString().split(' ')[0],
+                    'nominal': nominal,
+                    'keterangan': keteranganController.text
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Kasbon berhasil dicatat'), backgroundColor: Colors.green)
+                  );
+                }
+              },
+              child: const Text('Simpan'),
+            )
+          ],
         );
-      }
+      },
     );
   }
 
@@ -94,131 +85,115 @@ class _PekerjaListState extends State<PekerjaList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Daftar Kuli Proyek'),
-        backgroundColor: Colors.amber[700],
+        title: const Text('Hitung Hari'),
         actions: [
+          // TOMBOL MENU BARU: MAKAN
           IconButton(
-            icon: Icon(Icons.assignment_turned_in),
-            tooltip: 'Catat Absensi',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => AbsensiPage()),
-              );
-            },
-          )
+            icon: const Icon(Icons.fastfood),
+            tooltip: 'Biaya Makan',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MakanPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Rekap Master',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RekapGlobalPage())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.assignment_turned_in),
+            tooltip: 'Absen Harian',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AbsensiPage())),
+          ),
         ],
       ),
       body: FutureBuilder<List<Pekerja>>(
         future: _futurePekerja,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(child: Text('Belum ada data pekerja.'));
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.people_outline, size: 80, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  Text('Belum ada data kuli', style: TextStyle(color: Colors.grey[400], fontSize: 18)),
+                ],
+              ),
+            );
           }
 
           List<Pekerja> daftarPekerja = snapshot.data!;
           return ListView.builder(
+            padding: const EdgeInsets.only(top: 8, bottom: 80),
             itemCount: daftarPekerja.length,
             itemBuilder: (context, index) {
               var pekerja = daftarPekerja[index];
               return Card(
-                clipBehavior: Clip.antiAlias, // Agar ujungnya tetap membulat saat disentuh
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: InkWell(
-                  onTap: () {
-                    // Opsional: Aksi jika kartu disentuh
-                  },
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {},
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
                     child: ListTile(
                       leading: CircleAvatar(
-                        radius: 25,
-                        backgroundColor: Colors.amber[100], // Warna latar inisial
+                        radius: 28,
+                        backgroundColor: Colors.amber[100],
                         child: Text(
-                          pekerja.nama[0].toUpperCase(), // Ambil huruf pertama
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[800], fontSize: 20),
+                          pekerja.nama[0].toUpperCase(),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[800], fontSize: 22),
                         ),
                       ),
-                      title: Text(pekerja.nama, style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          '${pekerja.posisi}\nRp ${pekerja.upahHarian}/hari',
-                          style: TextStyle(height: 1.3), // Jarak antar baris teks
-                        ),
-                      ),
-                      isThreeLine: true, // Beri ruang agar teks tidak terpotong
+                      title: Text(pekerja.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: Text('${pekerja.posisi}\nRp ${pekerja.upahHarian}/hari'),
+                      isThreeLine: true,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Tombol Edit
-                          Container(
-                            decoration: BoxDecoration(color: Colors.orange[50], shape: BoxShape.circle),
-                            child: IconButton(
-                              icon: Icon(Icons.edit, color: Colors.orange[700], size: 20),
-                              tooltip: 'Edit Data',
-                              onPressed: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => PekerjaForm(pekerja: pekerja)),
-                                );
-                                if (result == true) _refreshPekerja();
-                              },
-                            ),
-                          ),
-                          SizedBox(width: 8),
-
-                          // Tombol Kasbon
-                          Container(
-                            decoration: BoxDecoration(color: Colors.green[50], shape: BoxShape.circle),
-                            child: IconButton(
-                              icon: Icon(Icons.monetization_on, color: Colors.green[700], size: 20),
-                              tooltip: 'Beri Kasbon',
-                              onPressed: () => _tampilkanDialogKasbon(context, pekerja),
-                            ),
-                          ),
-                          SizedBox(width: 8),
-
-                          // Navigasi ke Rekap Gaji
-                          Container(
-                            decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
-                            child: IconButton(
-                              icon: Icon(Icons.summarize, color: Colors.blue[700], size: 20),
-                              tooltip: 'Rekap Gaji',
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => RekapGajiPage(pekerja: pekerja),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+                          _buildActionIcon(Icons.edit, Colors.orange, () async {
+                            final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => PekerjaForm(pekerja: pekerja)));
+                            if (result == true) _refreshPekerja();
+                          }),
+                          const SizedBox(width: 8),
+                          _buildActionIcon(Icons.monetization_on, Colors.green, () => _tampilkanDialogKasbon(context, pekerja)),
+                          const SizedBox(width: 8),
+                          _buildActionIcon(Icons.summarize, Colors.blue, () {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => RekapGajiPage(pekerja: pekerja)));
+                          }),
                         ],
                       ),
                     ),
                   ),
                 ),
-              );
+              )
+              .animate(delay: (index * 100).ms) 
+              .fade(duration: 500.ms)
+              .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack);
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => PekerjaForm()),
-          );
+          final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => PekerjaForm()));
           if (result == true) _refreshPekerja();
         },
-        child: Icon(Icons.add),
+        label: const Text('Kuli Baru'),
+        icon: const Icon(Icons.add),
         backgroundColor: Colors.amber[700],
+        foregroundColor: Colors.white,
+      ).animate().scale(delay: 400.ms),
+    );
+  }
+
+  Widget _buildActionIcon(IconData icon, Color color, VoidCallback onTap) {
+    return Container(
+      decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+      child: IconButton(
+        constraints: const BoxConstraints(),
+        icon: Icon(icon, color: color, size: 20),
+        onPressed: onTap,
       ),
     );
   }

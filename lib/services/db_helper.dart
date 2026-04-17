@@ -6,7 +6,6 @@ class DatabaseHelper {
   static const _databaseName = "AbsensiKuli.db";
   static const _databaseVersion = 1;
 
-  // Membuat instance singleton (agar database tidak dibuka berkali-kali)
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
@@ -18,7 +17,6 @@ class DatabaseHelper {
     return _database!;
   }
 
-  // Fungsi untuk membuat file database di HP
   _initDatabase() async {
     final documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, _databaseName);
@@ -30,9 +28,7 @@ class DatabaseHelper {
     );
   }
 
-  // Membuat tabel-tabel saat aplikasi pertama kali diinstal
   Future _onCreate(Database db, int version) async {
-    // 1. Tabel Pekerja
     await db.execute('''
       CREATE TABLE pekerja (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,19 +39,17 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. Tabel Absensi
     await db.execute('''
       CREATE TABLE absensi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pekerja_id INTEGER,
         tanggal TEXT NOT NULL,
         status_hadir TEXT,
-        jam_lembur INTEGER DEFAULT 0,
+        lembur_nominal INTEGER DEFAULT 0,
         FOREIGN KEY (pekerja_id) REFERENCES pekerja (id) ON DELETE CASCADE
       )
     ''');
 
-    // 3. Tabel Kasbon
     await db.execute('''
       CREATE TABLE kasbon (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,10 +60,21 @@ class DatabaseHelper {
         FOREIGN KEY (pekerja_id) REFERENCES pekerja (id) ON DELETE CASCADE
       )
     ''');
+
+    // TABEL BARU UNTUK BIAYA MAKAN
+    await db.execute('''
+      CREATE TABLE makan (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tanggal TEXT NOT NULL,
+        jumlah_bungkus INTEGER NOT NULL,
+        harga_satuan INTEGER NOT NULL,
+        total_harga INTEGER NOT NULL,
+        keterangan TEXT
+      )
+    ''');
   }
 
-  // --- FUNGSI UNTUK PEKERJA ---
-  
+  // --- CRUD PEKERJA ---
   Future<int> insertPekerja(Map<String, dynamic> row) async {
     Database db = await instance.database;
     return await db.insert('pekerja', row);
@@ -86,32 +91,49 @@ class DatabaseHelper {
     return await db.update('pekerja', row, where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- FUNGSI UNTUK ABSENSI ---
-
+  // --- CRUD ABSENSI ---
   Future<int> simpanAbsensi(Map<String, dynamic> row) async {
     Database db = await instance.database;
-    // Gunakan conflictAlgorithm untuk mengupdate jika tanggal & id kuli sama
-    return await db.insert('absensi', row, conflictAlgorithm: ConflictAlgorithm.replace);
+    var existing = await db.query('absensi', 
+      where: 'pekerja_id = ? AND tanggal = ?', 
+      whereArgs: [row['pekerja_id'], row['tanggal']]);
+      
+    if (existing.isNotEmpty) {
+      return await db.update('absensi', row, where: 'id = ?', whereArgs: [existing.first['id']]);
+    } else {
+      return await db.insert('absensi', row);
+    }
   }
 
-  Future<List<Map<String, dynamic>>> queryRekap(int pekerjaId, String start, String end) async {
-    Database db = await instance.database;
-    return await db.query('absensi', 
-      where: 'pekerja_id = ? AND tanggal BETWEEN ? AND ?', 
-      whereArgs: [pekerjaId, start, end]);
-  }
-
-  // --- FUNGSI UNTUK KASBON ---
-
+  // --- CRUD KASBON ---
   Future<int> insertKasbon(Map<String, dynamic> row) async {
     Database db = await instance.database;
     return await db.insert('kasbon', row);
   }
 
-  Future<List<Map<String, dynamic>>> queryKasbon(int pekerjaId, String start, String end) async {
+  // --- CRUD MAKAN ---
+  Future<int> insertMakan(Map<String, dynamic> row) async {
     Database db = await instance.database;
-    return await db.query('kasbon', 
-      where: 'pekerja_id = ? AND tanggal BETWEEN ? AND ?', 
-      whereArgs: [pekerjaId, start, end]);
+    return await db.insert('makan', row);
+  }
+
+  Future<List<Map<String, dynamic>>> queryMakanByDate(String start, String end) async {
+    Database db = await instance.database;
+    return await db.query('makan', 
+      where: 'tanggal BETWEEN ? AND ?', 
+      whereArgs: [start, end],
+      orderBy: 'tanggal DESC');
+  }
+
+  // --- KODE BARU: UPDATE DAN DELETE MAKAN ---
+  Future<int> updateMakan(Map<String, dynamic> row) async {
+    Database db = await instance.database;
+    int id = row['id'];
+    return await db.update('makan', row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteMakan(int id) async {
+    Database db = await instance.database;
+    return await db.delete('makan', where: 'id = ?', whereArgs: [id]);
   }
 }
