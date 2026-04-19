@@ -24,8 +24,14 @@ class DatabaseHelper {
     return await openDatabase(
       path,
       version: _databaseVersion,
+      onConfigure: _onConfigure, // MENGAKTIFKAN CASCADE DELETE
       onCreate: _onCreate,
     );
+  }
+
+  // Wajib untuk SQLite agar fitur ON DELETE CASCADE berfungsi
+  Future _onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future _onCreate(Database db, int version) async {
@@ -61,7 +67,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // TABEL BARU UNTUK BIAYA MAKAN
     await db.execute('''
       CREATE TABLE makan (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,13 +96,16 @@ class DatabaseHelper {
     return await db.update('pekerja', row, where: 'id = ?', whereArgs: [id]);
   }
 
+  // KODE BARU: MENGHAPUS KULI
+  Future<int> deletePekerja(int id) async {
+    Database db = await instance.database;
+    return await db.delete('pekerja', where: 'id = ?', whereArgs: [id]);
+  }
+
   // --- CRUD ABSENSI ---
   Future<int> simpanAbsensi(Map<String, dynamic> row) async {
     Database db = await instance.database;
-    var existing = await db.query('absensi', 
-      where: 'pekerja_id = ? AND tanggal = ?', 
-      whereArgs: [row['pekerja_id'], row['tanggal']]);
-      
+    var existing = await db.query('absensi', where: 'pekerja_id = ? AND tanggal = ?', whereArgs: [row['pekerja_id'], row['tanggal']]);
     if (existing.isNotEmpty) {
       return await db.update('absensi', row, where: 'id = ?', whereArgs: [existing.first['id']]);
     } else {
@@ -105,33 +113,30 @@ class DatabaseHelper {
     }
   }
 
-  // --- CRUD KASBON ---
+  // KODE BARU: MENGAMBIL DATA ABSEN BERDASARKAN TANGGAL TERTENTU
+  Future<List<Map<String, dynamic>>> queryAbsensiByDate(String tanggal) async {
+    Database db = await instance.database;
+    return await db.query('absensi', where: 'tanggal = ?', whereArgs: [tanggal]);
+  }
+
+  // --- CRUD KASBON & MAKAN ---
   Future<int> insertKasbon(Map<String, dynamic> row) async {
     Database db = await instance.database;
     return await db.insert('kasbon', row);
   }
-
-  // --- CRUD MAKAN ---
   Future<int> insertMakan(Map<String, dynamic> row) async {
     Database db = await instance.database;
     return await db.insert('makan', row);
   }
-
   Future<List<Map<String, dynamic>>> queryMakanByDate(String start, String end) async {
     Database db = await instance.database;
-    return await db.query('makan', 
-      where: 'tanggal BETWEEN ? AND ?', 
-      whereArgs: [start, end],
-      orderBy: 'tanggal DESC');
+    return await db.query('makan', where: 'tanggal BETWEEN ? AND ?', whereArgs: [start, end], orderBy: 'tanggal DESC');
   }
-
-  // --- KODE BARU: UPDATE DAN DELETE MAKAN ---
   Future<int> updateMakan(Map<String, dynamic> row) async {
     Database db = await instance.database;
     int id = row['id'];
     return await db.update('makan', row, where: 'id = ?', whereArgs: [id]);
   }
-
   Future<int> deleteMakan(int id) async {
     Database db = await instance.database;
     return await db.delete('makan', where: 'id = ?', whereArgs: [id]);

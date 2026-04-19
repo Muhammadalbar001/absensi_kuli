@@ -3,10 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/pekerja.dart';
 import '../../services/db_helper.dart';
 import 'pekerja_form.dart';
-import '../absensi/absensi_page.dart';
 import 'rekap_gaji_page.dart';
-import 'rekap_global_page.dart';
-import 'makan_page.dart'; // IMPORT HALAMAN MAKAN
 
 class PekerjaList extends StatefulWidget {
   @override
@@ -43,16 +40,9 @@ class _PekerjaListState extends State<PekerjaList> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nominalController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Nominal (Rp)', prefixText: 'Rp '),
-              ),
+              TextField(controller: nominalController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Nominal (Rp)', prefixText: 'Rp ')),
               const SizedBox(height: 12),
-              TextField(
-                controller: keteranganController,
-                decoration: const InputDecoration(labelText: 'Keterangan'),
-              ),
+              TextField(controller: keteranganController, decoration: const InputDecoration(labelText: 'Keterangan')),
             ],
           ),
           actions: [
@@ -62,15 +52,11 @@ class _PekerjaListState extends State<PekerjaList> {
                 int nominal = int.tryParse(nominalController.text) ?? 0;
                 if (nominal > 0) {
                   await DatabaseHelper.instance.insertKasbon({
-                    'pekerja_id': pekerja.id,
-                    'tanggal': DateTime.now().toString().split(' ')[0],
-                    'nominal': nominal,
-                    'keterangan': keteranganController.text
+                    'pekerja_id': pekerja.id, 'tanggal': DateTime.now().toString().split(' ')[0],
+                    'nominal': nominal, 'keterangan': keteranganController.text
                   });
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Kasbon berhasil dicatat'), backgroundColor: Colors.green)
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kasbon berhasil dicatat'), backgroundColor: Colors.green));
                 }
               },
               child: const Text('Simpan'),
@@ -81,47 +67,42 @@ class _PekerjaListState extends State<PekerjaList> {
     );
   }
 
+  void _hapusKuli(Pekerja pekerja) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Hapus ${pekerja.nama}?'),
+        content: const Text('Apakah Anda yakin? Semua data absen dan kasbon miliknya akan ikut terhapus.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              await DatabaseHelper.instance.deletePekerja(pekerja.id);
+              Navigator.pop(context);
+              _refreshPekerja();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kuli berhasil dihapus'), backgroundColor: Colors.red));
+            },
+            child: const Text('HAPUS PERMANEN'),
+          )
+        ],
+      )
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hitung Hari'),
-        actions: [
-          // TOMBOL MENU BARU: MAKAN
-          IconButton(
-            icon: const Icon(Icons.fastfood),
-            tooltip: 'Biaya Makan',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MakanPage())),
-          ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long),
-            tooltip: 'Rekap Master',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RekapGlobalPage())),
-          ),
-          IconButton(
-            icon: const Icon(Icons.assignment_turned_in),
-            tooltip: 'Absen Harian',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AbsensiPage())),
-          ),
-        ],
+        title: const Text('Hitung Hari - Daftar Kuli'), // JUDUL DIPERBARUI
       ),
       body: FutureBuilder<List<Pekerja>>(
         future: _futurePekerja,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.people_outline, size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text('Belum ada data kuli', style: TextStyle(color: Colors.grey[400], fontSize: 18)),
-                ],
-              ),
-            );
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.people_outline, size: 80, color: Colors.grey[300]), const SizedBox(height: 16), Text('Belum ada data kuli', style: TextStyle(color: Colors.grey[400], fontSize: 18))]));
           }
 
           List<Pekerja> daftarPekerja = snapshot.data!;
@@ -131,45 +112,38 @@ class _PekerjaListState extends State<PekerjaList> {
             itemBuilder: (context, index) {
               var pekerja = daftarPekerja[index];
               return Card(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {},
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.amber[100],
-                        child: Text(
-                          pekerja.nama[0].toUpperCase(),
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[800], fontSize: 22),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: CircleAvatar(radius: 25, backgroundColor: Colors.amber[100], child: Text(pekerja.nama[0].toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber[800], fontSize: 20))),
+                        title: Text(pekerja.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        subtitle: Text('${pekerja.posisi}\nRp ${pekerja.upahHarian}/hari'),
+                        isThreeLine: true,
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildActionIcon(Icons.edit, Colors.orange, 'Edit', () async {
+                              final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => PekerjaForm(pekerja: pekerja)));
+                              if (result == true) _refreshPekerja();
+                            }),
+                            _buildActionIcon(Icons.monetization_on, Colors.green, 'Kasbon', () => _tampilkanDialogKasbon(context, pekerja)),
+                            _buildActionIcon(Icons.summarize, Colors.blue, 'Rekap', () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => RekapGajiPage(pekerja: pekerja)));
+                            }),
+                            _buildActionIcon(Icons.delete, Colors.red, 'Hapus', () => _hapusKuli(pekerja)),
+                          ],
                         ),
-                      ),
-                      title: Text(pekerja.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text('${pekerja.posisi}\nRp ${pekerja.upahHarian}/hari'),
-                      isThreeLine: true,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildActionIcon(Icons.edit, Colors.orange, () async {
-                            final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => PekerjaForm(pekerja: pekerja)));
-                            if (result == true) _refreshPekerja();
-                          }),
-                          const SizedBox(width: 8),
-                          _buildActionIcon(Icons.monetization_on, Colors.green, () => _tampilkanDialogKasbon(context, pekerja)),
-                          const SizedBox(width: 8),
-                          _buildActionIcon(Icons.summarize, Colors.blue, () {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => RekapGajiPage(pekerja: pekerja)));
-                          }),
-                        ],
-                      ),
-                    ),
+                      )
+                    ],
                   ),
                 ),
-              )
-              .animate(delay: (index * 100).ms) 
-              .fade(duration: 500.ms)
-              .slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack);
+              ).animate(delay: (index * 100).ms).fade(duration: 500.ms).slideY(begin: 0.3, end: 0, curve: Curves.easeOutBack);
             },
           );
         },
@@ -179,21 +153,25 @@ class _PekerjaListState extends State<PekerjaList> {
           final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => PekerjaForm()));
           if (result == true) _refreshPekerja();
         },
-        label: const Text('Kuli Baru'),
-        icon: const Icon(Icons.add),
-        backgroundColor: Colors.amber[700],
-        foregroundColor: Colors.white,
+        label: const Text('Kuli Baru'), icon: const Icon(Icons.add),
+        backgroundColor: Colors.amber[700], foregroundColor: Colors.white,
       ).animate().scale(delay: 400.ms),
     );
   }
 
-  Widget _buildActionIcon(IconData icon, Color color, VoidCallback onTap) {
-    return Container(
-      decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-      child: IconButton(
-        constraints: const BoxConstraints(),
-        icon: Icon(icon, color: color, size: 20),
-        onPressed: onTap,
+  Widget _buildActionIcon(IconData icon, Color color, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
