@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_animate/flutter_animate.dart'; // IMPORT ANIMASI
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../services/db_helper.dart';
 
 class MakanPage extends StatefulWidget {
@@ -14,6 +14,11 @@ class _MakanPageState extends State<MakanPage> {
   final _ketController = TextEditingController();
   DateTime _tanggalDipilih = DateTime.now();
   int? _editId; 
+  
+  // KODE BARU: FILTER RENTANG TANGGAL UNTUK RIWAYAT
+  DateTime _filterStart = DateTime(DateTime.now().year, DateTime.now().month, 1); // Awal bulan
+  DateTime _filterEnd = DateTime.now(); // Hari ini
+
   final currencyFormatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
 
   void _simpanMakan() async {
@@ -128,15 +133,50 @@ class _MakanPageState extends State<MakanPage> {
                 ),
               ),
             ),
-          ).animate().fade().slideY(begin: -0.2), // ANIMASI KOTAK FORM MAKAN
+          ).animate().fade().slideY(begin: -0.2),
           
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), child: Align(alignment: Alignment.centerLeft, child: Text('Riwayat Pembelian Nasi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
+          // KODE BARU: HEADER RIWAYAT DENGAN TOMBOL FILTER
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Theme.of(context).colorScheme.surfaceVariant,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Riwayat Pembelian', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime.now(), initialDateRange: DateTimeRange(start: _filterStart, end: _filterEnd));
+                    if (picked != null) setState(() { _filterStart = picked.start; _filterEnd = picked.end; });
+                  },
+                  icon: const Icon(Icons.filter_alt, size: 16),
+                  label: Text("${DateFormat('dd/MM').format(_filterStart)} - ${DateFormat('dd/MM').format(_filterEnd)}", style: const TextStyle(fontSize: 12)),
+                )
+              ],
+            ),
+          ),
+
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: DatabaseHelper.instance.queryMakanByDate('2000-01-01', '2100-01-01'),
+              // Ganti pencarian menggunakan filter tanggal
+              future: DatabaseHelper.instance.queryMakanByDate(DateFormat('yyyy-MM-dd').format(_filterStart), DateFormat('yyyy-MM-dd').format(_filterEnd)),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('Belum ada data makan.'));
+                
+                // KODE BARU: ILUSTRASI EMPTY STATE YANG ELEGAN
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.receipt_long_outlined, size: 80, color: Theme.of(context).disabledColor.withOpacity(0.3)),
+                        const SizedBox(height: 16),
+                        Text('Tidak ada pengeluaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).disabledColor)),
+                        Text('di rentang tanggal ini.', style: TextStyle(color: Theme.of(context).disabledColor)),
+                      ],
+                    ).animate().fade(duration: 500.ms).scaleXY(begin: 0.8),
+                  );
+                }
+                
                 return ListView.builder(
                   itemCount: snapshot.data!.length,
                   itemBuilder: (context, index) {
@@ -160,7 +200,7 @@ class _MakanPageState extends State<MakanPage> {
                           ],
                         ),
                       ),
-                    ).animate(delay: (index * 50).ms).fade().slideX(begin: 0.1); // ANIMASI LIST RIWAYAT MAKAN
+                    ).animate(delay: (index * 50).ms).fade().slideX(begin: 0.1);
                   },
                 );
               },

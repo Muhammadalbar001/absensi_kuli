@@ -1,3 +1,4 @@
+import 'dart:io'; // KODE BARU: Wajib di-import untuk fitur Backup & Restore
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -92,7 +93,6 @@ class DatabaseHelper {
 
   // --- CRUD KASBON ---
   Future<int> insertKasbon(Map<String, dynamic> row) async { Database db = await instance.database; return await db.insert('kasbon', row); }
-  // KODE BARU: UPDATE DAN DELETE KASBON
   Future<int> updateKasbon(Map<String, dynamic> row) async { Database db = await instance.database; int id = row['id']; return await db.update('kasbon', row, where: 'id = ?', whereArgs: [id]); }
   Future<int> deleteKasbon(int id) async { Database db = await instance.database; return await db.delete('kasbon', where: 'id = ?', whereArgs: [id]); }
 
@@ -101,4 +101,31 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> queryMakanByDate(String start, String end) async { Database db = await instance.database; return await db.query('makan', where: 'tanggal BETWEEN ? AND ?', whereArgs: [start, end], orderBy: 'tanggal DESC'); }
   Future<int> updateMakan(Map<String, dynamic> row) async { Database db = await instance.database; int id = row['id']; return await db.update('makan', row, where: 'id = ?', whereArgs: [id]); }
   Future<int> deleteMakan(int id) async { Database db = await instance.database; return await db.delete('makan', where: 'id = ?', whereArgs: [id]); }
+
+  // ==========================================
+  // KODE BARU: BACKUP & RESTORE DATABASE
+  // ==========================================
+  
+  // Mengambil lokasi file database asli di HP
+  Future<String> getDatabasePath() async {
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    return join(documentsDirectory.path, _databaseName);
+  }
+
+  // Menimpa database lama dengan file backup yang baru
+  Future<void> restoreDatabase(String backupFilePath) async {
+    // 1. Tutup koneksi database yang sedang berjalan
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+    
+    // 2. Timpa file lama dengan file backup
+    final oldPath = await getDatabasePath();
+    final backupFile = File(backupFilePath);
+    await backupFile.copy(oldPath);
+    
+    // 3. Buka kembali koneksi
+    _database = await _initDatabase();
+  }
 }
