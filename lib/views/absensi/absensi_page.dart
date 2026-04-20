@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; 
+import 'package:flutter_animate/flutter_animate.dart'; // IMPORT ANIMASI
 import '../../models/pekerja.dart';
 import '../../services/db_helper.dart';
 
@@ -93,8 +94,8 @@ class _AbsensiPageState extends State<AbsensiPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Absensi Harian'), // JUDUL DIPERBARUI
-        backgroundColor: Colors.indigo[600]
+        title: const Text('Absensi Harian'), 
+        backgroundColor: Colors.indigo[600], foregroundColor: Colors.white
       ),
       body: Column(
         children: [
@@ -161,7 +162,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
                           ],
                         ),
                       ),
-                    );
+                    ).animate(delay: (index * 50).ms).fade(duration: 400.ms).slideX(begin: -0.1, curve: Curves.easeOut); // ANIMASI MASUK KARTU ABSEN
                   },
                 );
               },
@@ -177,7 +178,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
         label: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text('SIMPAN ABSENSI', style: TextStyle(fontWeight: FontWeight.bold)),
         icon: const Icon(Icons.save),
         backgroundColor: Colors.indigo[600], foregroundColor: Colors.white,
-      ),
+      ).animate().scale(delay: 300.ms),
     );
   }
 }

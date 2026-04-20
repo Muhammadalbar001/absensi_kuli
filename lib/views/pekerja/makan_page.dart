@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart'; // IMPORT ANIMASI
 import '../../services/db_helper.dart';
 
 class MakanPage extends StatefulWidget {
@@ -80,7 +81,7 @@ class _MakanPageState extends State<MakanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pengeluaran Makan'), // JUDUL DIPERBARUI
+        title: const Text('Pengeluaran Makan'),
         backgroundColor: Colors.orange[800], foregroundColor: Colors.white
       ),
       body: Column(
@@ -127,7 +128,8 @@ class _MakanPageState extends State<MakanPage> {
                 ),
               ),
             ),
-          ),
+          ).animate().fade().slideY(begin: -0.2), // ANIMASI KOTAK FORM MAKAN
+          
           const Padding(padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), child: Align(alignment: Alignment.centerLeft, child: Text('Riwayat Pembelian Nasi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -158,7 +160,7 @@ class _MakanPageState extends State<MakanPage> {
                           ],
                         ),
                       ),
-                    );
+                    ).animate(delay: (index * 50).ms).fade().slideX(begin: 0.1); // ANIMASI LIST RIWAYAT MAKAN
                   },
                 );
               },

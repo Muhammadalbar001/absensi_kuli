@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_animate/flutter_animate.dart'; // IMPORT ANIMASI
 import '../../models/pekerja.dart';
 import '../../services/db_helper.dart';
 
@@ -70,7 +71,6 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
     };
   }
 
-  // FUNGSI EXPORT KE EXCEL (CSV) & SHARE KE WHATSAPP
   Future<void> _exportExcelCSV(Map<String, dynamic> data) async {
     List<List<dynamic>> rows = [];
 
@@ -92,8 +92,8 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
     rows.add(['', '', '', '', 'Total Biaya Makan', data['total_makan']]);
     rows.add(['', '', '', '', 'GRAND TOTAL', data['total_proyek']]);
 
-    // Error listToCsv sudah diperbaiki (tidak menggunakan const)
-    String csv = const ListToCsvConverter().convert(rows);
+    // TIDAK MENGGUNAKAN CONST PADA LISTTOCSV
+    String csv = ListToCsvConverter().convert(rows);
     
     final directory = await getApplicationDocumentsDirectory();
     final path = '${directory.path}/Laporan_Proyek_${DateFormat('dd_MMM_yyyy').format(DateTime.now())}.csv';
@@ -103,7 +103,6 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
     await Share.shareXFiles([XFile(path)], text: 'Berikut adalah Laporan Keuangan Proyek format Excel.');
   }
 
-  // FUNGSI CETAK PDF
   Future<void> _cetakPDFLaporan(Map<String, dynamic> data) async {
     final pdf = pw.Document();
     List<Map<String, dynamic>> listPekerja = data['list_rekap'];
@@ -187,7 +186,6 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
 
                 return Column(
                   children: [
-                    // TAMPILAN TABEL LAYAR KACA
                     Expanded(
                       child: listPekerja.isEmpty 
                       ? const Center(child: Text('Tidak ada aktivitas kuli di periode ini'))
@@ -218,7 +216,7 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
                               }).toList(),
                             ),
                           ),
-                        ),
+                        ).animate().fade().scaleXY(begin: 0.95, alignment: Alignment.topCenter), // ANIMASI TABEL EXCEL
                     ),
                     
                     Container(
@@ -259,7 +257,7 @@ class _RekapGlobalPageState extends State<RekapGlobalPage> {
                           ],
                         ),
                       ),
-                    )
+                    ).animate().slideY(begin: 1.0, duration: 500.ms, curve: Curves.easeOutCubic) // ANIMASI KOTAK TOTAL DARI BAWAH
                   ],
                 );
               },
